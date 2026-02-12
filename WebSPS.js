@@ -2,7 +2,7 @@
  * WebSPS.js - A JavaScript-based implementation of a Programmable Logic Controller
  *
  * @author Oliver Weinhold
- * @copyright Copyright (c) 2024 Oliver Weinhold
+ * @copyright Copyright (c) 2026 Oliver Weinhold
  * @license GPLv3
  *
  * This program is free software: you can redistribute it and/or modify
@@ -58,19 +58,34 @@ export class SPS {
    * @param {number} [Flags=64] - The number of flag registers. Defaults to 64.
    */
   constructor(Inputs = 64, Outputs = 64, Flags = 64) {
-    if (Inputs > 256) this.#E = new Array(256).fill(0);
-    else this.#E = new Array(Inputs).fill(0);
-    if (Outputs > 256) this.#A = new Array(256).fill(0);
-    else this.#A = new Array(Outputs).fill(0);
-    if (Flags > 256) this.#M = new Array(256).fill(0);
-    else this.#M = new Array(Flags).fill(0);
+    if (Inputs > 256) Inputs = 256;
+    else if (Inputs < 0) Inputs = 64; 
+    
+    if (Outputs > 256) Outputs = 256;
+    else if (Outputs < 0) Outputs = 64;
+
+    if (Flags > 256) Flags = 256;
+    else if (Flags < 0) Flags = 64;
+    
+    this.#E = new Array(Inputs).fill(0);
+    this.#A = new Array(Outputs).fill(0);
+    this.#M = new Array(Flags).fill(0);
   }
 
   //Runtime is executed every SPSCycleTime ms
   #SPSRuntime = () => {
     this.#RuntimeCounter += 1;
-    eval(this.#SPSCode);
-    this.dataReady = true;
+    try {
+      // Execute the SPS logic
+      const run = new Function(this.#SPSCode); 
+      run.call(this); // Execute in the context of the SPS instance
+      this.#dataReady = true;
+    } catch (e) {
+      console.error("SPS Runtime Error:", e);
+      this.#state = 0; // Stop on error
+      this.#changeSPSState(0);
+      if (this.onErrorCallback) this.onErrorCallback(e.message);
+    }
   };
 
   //Transition between States
@@ -155,7 +170,7 @@ export class SPS {
    * @return {number} 0 if the flags are set successfully.
    */
   setFlags(flags) {
-    dataReady = false;
+    this.#dataReady = false;
     for (let i = 0; i < this.#M.length; i++) {
       this.#M[i] = flags[i];
     }
@@ -328,14 +343,13 @@ function generateCodeStructure(CodeInput, errorCallback) {
   const validBrackets = ["(", ")"];
 
   //Generate RegEx to check for valid operands with only numbers following
-  let validOperandsRegex = new RegExp(`^(${validOperands.join("|")})\\d+$`);
+  const validOperandsRegex = new RegExp(`^(${validOperands.join("|")})\\d+$`);
 
-  var BracketCount = 0;
-
-  var invalidCommand = false;
+  let BracketCount = 0;
+  let invalidCommand = false;
 
   /** commandArray: {type: insType, instruction: instruction, blockNumber: Number of Instruction} */
-  var commandArray = [];
+  const commandArray = [];
 
   //Convert Code to upper Case
   CodeInput = CodeInput.toUpperCase();
@@ -344,7 +358,7 @@ function generateCodeStructure(CodeInput, errorCallback) {
   CodeInput = CodeInput.replace(/\/\/.*$/gm, "");
 
   // Split the code input by line, brackets and spaces
-  var codeParts = CodeInput.split(/([\s\t\n(){}\[\]])/);
+  let codeParts = CodeInput.split(/([\s\t\n(){}\[\]])/);
   codeParts = codeParts.filter(
     (part) => part.trim().length > 0 || /[(){}\[\]]/.test(part)
   );
@@ -411,16 +425,15 @@ function generateCodeStructure(CodeInput, errorCallback) {
  * @return {String} The generated JavaScript code.
  */
 function generateJSCode(commandArray, errorCallback) {
-  var JSCode = "";
-  var lastInstruction = "";
-  var isNewBlock = true;
-  var openIfBlock = false;
-  var NOT = false;
+  let JSCode = "";
+  let lastInstruction = "";
+  let isNewBlock = true;
+  let openIfBlock = false;
 
-  commandArray.forEach((command) => {
+  for (const command of commandArray) {
     if (command.type == 6) {
       JSCode += "; // End of Network\n";
-      return null;
+      continue;
     }
     if (isNewBlock) {
       switch (command.type) {
@@ -447,20 +460,24 @@ function generateJSCode(commandArray, errorCallback) {
             );
             return null;
           }
-        }
+        } // Fallthrough intended if not breaking above
         case 4: {
-          errorCallback(
-            "generateJSCode >> Bracket without logical Operand: " +
-              command.instruction
-          );
-          return null;
+            if(command.type === 4) { // Only if fallthrough or direct hit
+                errorCallback(
+                    "generateJSCode >> Bracket without logical Operand: " +
+                    command.instruction
+                );
+                return null;
+            }
         }
         default: {
-          errorCallback(
-            "generateJSCode >> Not valid as first command: " +
-              command.instruction
-          );
-          return null;
+           if (command.type !== 2) { // Determine if here by default or fallthrough
+               errorCallback(
+                 "generateJSCode >> Not valid as first command: " +
+                   command.instruction
+               );
+               return null;
+           }
         }
       }
     } else
@@ -492,7 +509,7 @@ function generateJSCode(commandArray, errorCallback) {
           break;
         }
         case 3: {
-          var slicedCommand = [command.instruction[0]];
+          const slicedCommand = [command.instruction[0]];
           slicedCommand.push(parseInt(command.instruction.slice(1)) - 1);
           if (openIfBlock) {
             if (lastInstruction == "S") {
@@ -579,6 +596,6 @@ function generateJSCode(commandArray, errorCallback) {
           }
         }
       }
-  });
+  }
   return JSCode;
 }
