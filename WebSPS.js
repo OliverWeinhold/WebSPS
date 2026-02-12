@@ -38,11 +38,11 @@ export class SPS {
 
   //Input, Flag and Output Registers
   /** @E {array} Internal input Registers */
-  #E;
+  _E;
   /** @A {array} Internal output Registers */
-  #A;
+  _A;
   /** @M {array} Internal flag Registers */
-  #M;
+  _M;
 
   /** @RuntimeCounter {number} Counter for Runtime */
   #RuntimeCounter = 0;
@@ -67,9 +67,9 @@ export class SPS {
     if (Flags > 256) Flags = 256;
     else if (Flags < 0) Flags = 64;
     
-    this.#E = new Array(Inputs).fill(0);
-    this.#A = new Array(Outputs).fill(0);
-    this.#M = new Array(Flags).fill(0);
+    this._E = new Array(Inputs).fill(0);
+    this._A = new Array(Outputs).fill(0);
+    this._M = new Array(Flags).fill(0);
   }
 
   //Runtime is executed every SPSCycleTime ms
@@ -171,10 +171,10 @@ export class SPS {
    */
   setFlags(flags) {
     this.#dataReady = false;
-    for (let i = 0; i < this.#M.length; i++) {
-      this.#M[i] = flags[i];
+    for (let i = 0; i < this._M.length; i++) {
+      this._M[i] = flags[i];
     }
-    DEBUG && console.log("SPS:setFlags >> Flags: " + this.#M);
+    DEBUG && console.log("SPS:setFlags >> Flags: " + this._M);
     return 0;
   }
 
@@ -186,10 +186,10 @@ export class SPS {
    */
   setInputs(inputs) {
     this.#dataReady = false;
-    for (let i = 0; i < this.#E.length; i++) {
-      this.#E[i] = inputs[i];
+    for (let i = 0; i < this._E.length; i++) {
+      this._E[i] = inputs[i];
     }
-    DEBUG && console.log("SPS:setInputs >> Input: " + this.#E);
+    DEBUG && console.log("SPS:setInputs >> Input: " + this._E);
     return 0;
   }
 
@@ -202,9 +202,9 @@ export class SPS {
   getInputs() {
     const InputArray = [];
     for (let i = 0; i < 8; i++) {
-      InputArray[i] = this.#E[i];
+      InputArray[i] = this._E[i];
     }
-    DEBUG && console.log("SPS:getInputs >> getInputs: " + this.#E);
+    DEBUG && console.log("SPS:getInputs >> getInputs: " + this._E);
     return InputArray;
   }
 
@@ -215,10 +215,10 @@ export class SPS {
    */
   getFlags() {
     const FlagArray = [];
-    for (let i = 0; i < this.#M.length; i++) {
-      FlagArray[i] = this.#M[i];
+    for (let i = 0; i < this._M.length; i++) {
+      FlagArray[i] = this._M[i];
     }
-    DEBUG && console.log("SPS:getFlags >> Flags: " + this.#M);
+    DEBUG && console.log("SPS:getFlags >> Flags: " + this._M);
     return FlagArray;
   }
 
@@ -231,8 +231,8 @@ export class SPS {
     if (!this.#dataReady && this.#state == 1) {
       this.#SPSRuntime();
     }
-    DEBUG && console.log("SPS:getOutputs >> Output: " + this.#A);
-    return this.#A;
+    DEBUG && console.log("SPS:getOutputs >> Output: " + this._A);
+    return this._A;
   };
 
   /**
@@ -275,9 +275,9 @@ export class SPS {
   stop() {
     if (this.#state == 0) return -1; //SPS already stopped
     this.#state = 0;
-    this.#E.fill(0);
-    this.#A.fill(0);
-    this.#M.fill(0);
+    this._E.fill(0);
+    this._A.fill(0);
+    this._M.fill(0);
     DEBUG && console.log(
         "SPS:Stop >> State: " +
           this.#state +
@@ -518,7 +518,7 @@ function generateJSCode(commandArray, errorCallback) {
               isNewBlock = true;
               JSCode +=
                 ") { " +
-                "this.#" +
+                "this._" +
                 slicedCommand[0] +
                 "[" +
                 slicedCommand[1] +
@@ -530,7 +530,7 @@ function generateJSCode(commandArray, errorCallback) {
               isNewBlock = true;
               JSCode +=
                 ") { " +
-                "this.#" +
+                "this._" +
                 slicedCommand[0] +
                 "[" +
                 slicedCommand[1] +
@@ -542,13 +542,13 @@ function generateJSCode(commandArray, errorCallback) {
               isNewBlock = true;
               JSCode +=
                 ") { " +
-                "this.#" +
+                "this._" +
                 slicedCommand[0] +
                 "[" +
                 slicedCommand[1] +
                 "]" +
                 " = true; } else { " +
-                "this.#" +
+                "this._" +
                 slicedCommand[0] +
                 "[" +
                 slicedCommand[1] +
@@ -556,13 +556,13 @@ function generateJSCode(commandArray, errorCallback) {
                 " = false; }\n";
             } else
               JSCode +=
-                "this.#" + slicedCommand[0] + "[" + slicedCommand[1] + "]";
+                "this._" + slicedCommand[0] + "[" + slicedCommand[1] + "]";
             break;
           } else {
             if (lastInstruction == "S") {
               lastInstruction = "";
               JSCode +=
-                "this.#" +
+                "this._" +
                 slicedCommand[0] +
                 "[" +
                 slicedCommand[1] +
@@ -572,7 +572,7 @@ function generateJSCode(commandArray, errorCallback) {
             } else if (lastInstruction == "R") {
               lastInstruction = "";
               JSCode +=
-                "this.#" +
+                "this._" +
                 slicedCommand[0] +
                 "[" +
                 slicedCommand[1] +
